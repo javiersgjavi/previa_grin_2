@@ -1,23 +1,30 @@
 import pandas as pd
-from tsl.datasets import TabularDataset
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
+from tsl.datasets import TabularDataset, DatetimeDataset
 
 
-class ElectricData(TabularDataset):
-    def __init__(self, name='electric',
-                 force_synchronization=True,
-                 precision=32,
-                 mask=None):
+class ElectricData(DatetimeDataset):
+    similarity_options = {'pearson'}
+
+    def __init__(self, normalized=True):
 
         self.base_data = pd.read_csv('./data/electric/normal_data.csv')
-        super().__init__(name=name,
-                         target=self.base_data,
-                         similarity_score={'pearson'},
+        if normalized:
+            self.base_data = pd.DataFrame(MinMaxScaler().fit_transform(self.base_data), columns=self.base_data.columns)
+
+        shape = self.base_data.shape
+        mask = np.ones((shape[0], shape[1], 1)).astype(bool)
+        super().__init__(target=self.base_data,
+                         mask=mask,
+                         name='electric',
+                         similarity_score='pearson',
                          temporal_aggregation='sum',
                          spatial_aggregation='sum',
-                         default_splitting_method='temporal',)
+                         default_splitting_method='temporal',
+                         force_synchronization=True,
+                         precision=32)
 
-        self.precision = precision
-        self.force_synchronization = force_synchronization
 
         self.target = self._parse_target(self.base_data)
         self.set_mask(mask)
@@ -28,6 +35,3 @@ class ElectricData(TabularDataset):
             return self.base_data.corr().to_numpy()
         else:
             raise ValueError('Similarity method not supported')
-
-
-
